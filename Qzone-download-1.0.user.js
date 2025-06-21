@@ -55,6 +55,13 @@
 
     // 主函数
     function init() {
+        // 清理之前添加的控件
+        document.querySelectorAll('.download-controls, .media-checkbox').forEach(el => {
+            if (el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+        });
+
         const msgList = document.getElementById('msgList');
         if (!msgList) {
             console.log('未找到消息列表');
@@ -249,12 +256,61 @@
         }, 100);
     }
 
-    // 确保DOM加载完成后执行
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(init, 1000);
-    } else {
-        window.addEventListener('load', function() {
-            setTimeout(init, 1000);
+    // 设置MutationObserver监听msgList变化
+    function setupMutationObserver() {
+        const msgList = document.getElementById('msgList');
+        if (!msgList) {
+            console.log('未找到msgList，稍后重试');
+            setTimeout(setupMutationObserver, 1000);
+            return;
+        }
+
+        // 创建MutationObserver实例
+        const observer = new MutationObserver(mutations => {
+            // 检查是否有实际内容变化
+            const hasContentChange = mutations.some(mutation => {
+                // 检查是否是子节点变化
+                if (mutation.type === 'childList') {
+                    // 检查是否有添加或删除的<li>元素
+                    return Array.from(mutation.addedNodes).some(node =>
+                        node.nodeType === 1 && node.tagName === 'LI'
+                    ) || Array.from(mutation.removedNodes).some(node =>
+                        node.nodeType === 1 && node.tagName === 'LI'
+                    );
+                }
+                return false;
+            });
+
+            if (hasContentChange) {
+                console.log('msgList内容变化，重新初始化下载助手');
+                // 延迟执行以等待DOM完全更新
+                setTimeout(init, 300);
+            }
         });
+
+        // 配置观察选项
+        const config = {
+            childList: true,  // 观察直接子节点变化
+            subtree: true    // 观察所有后代节点变化
+        };
+
+        // 开始观察
+        observer.observe(msgList, config);
+        console.log('已设置MutationObserver监听msgList变化');
+    }
+
+    // 确保DOM加载完成后执行
+    function main() {
+        // 初始执行
+        setTimeout(init, 1000);
+
+        // 设置MutationObserver监听
+        setTimeout(setupMutationObserver, 1500);
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        main();
+    } else {
+        window.addEventListener('load', main);
     }
 })();
